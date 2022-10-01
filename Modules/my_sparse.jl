@@ -27,6 +27,8 @@ function Base.show(io::IO, c::CRSMatrix)
     println(io, "└addres: $(c.addres)")
     println(io, "└columns: $(c.columns)")
     println(io, "└values: $(c.values)")
+    println(io, "└rows: $(c.rows)")
+    println(io, "└cols: $(c.cols)")
 end
 
 function Base.:*(c::CRSMatrix, vector::Vector{<:Real})
@@ -52,6 +54,45 @@ function Base.getindex(c::CRSMatrix, i::Int64, j::Int64)
     end
 
     return res
+end
+
+function Base.:+(m1::CRSMatrix, m2::CRSMatrix)
+    m1.cols != m2.cols  || m1.rows != m2.rows && throw(error("Размеры матриц различны, сложение невозможно"))
+
+    addres = [1]
+    columns = Int64[]
+    values = Float64[]
+
+    iter1 = 1
+    iter2 = 1
+    for i in 1:m1.rows
+        count1 = m1.addres[i+1]-m1.addres[i]
+        count2 = m2.addres[i+1]-m2.addres[i]
+        d = Dict()
+        for _ in 1:count1
+            d[m1.columns[iter1]] = m1.values[iter1]
+            iter1 += 1
+        end
+        for _ in 1:count2
+            d[m2.columns[iter2]] = get(d, m2.columns[iter2], 0.0) + m2.values[iter2]
+            iter2 += 1
+        end
+        push!(addres, addres[end] + length(d))
+        for (col, val) in sort(collect(d), by=x->x[1])
+            push!(columns, col)
+            push!(values, val)
+        end
+    end
+    return CRSMatrix(addres, columns, values)
+end
+
+function Base.:(==)(m1::CRSMatrix, m2::CRSMatrix)
+    m1.addres != m2.addres && return false 
+    m1.columns != m2.columns && return false 
+    m1.values != m2.values && return false 
+    m1.rows != m2.rows && return false 
+    m1.cols != m2.cols && return false 
+    return true
 end
 end #module MySparse
 

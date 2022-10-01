@@ -76,8 +76,8 @@ end
 @testset verbose = true "Взятие элемента по индексам" begin
     # {{1, 0, 0}, {0, 0, 0}, {5, 3, 4}}
     addres = [1, 2, 2, 5]
-    values = [1.0, 5.0, 3.0, 4.0] 
-    columns= [1, 1, 2, 3]
+    values = [1.0, 5.0, 3.0, 4.0]
+    columns = [1, 1, 2, 3]
     m = CRSMatrix(addres, columns, values)
     @test m[1, 1] == 1.0
     @test m[1, 2] == 0.0
@@ -98,4 +98,50 @@ end
     @test_throws ErrorException(expected_message) begin
         v = m[2, 0]
     end
+end
+
+@testset verbose = true "Сложение матриц" begin
+    #{{1, 0}, {0, 1}} + {{0, 0}, {1, 0}}} == {{1, 0}, {1, 1}}
+    addres = [1, 2, 3]
+    values = [1.0, 1.0]
+    columns = [1, 2]
+    m1 = CRSMatrix(addres, columns, values)
+    addres = [1, 1, 2]
+    values = [1.0]
+    columns = [1]
+    m2 = CRSMatrix(addres, columns, values)
+    addres = [1, 2, 4]
+    values = [1.0, 1.0, 1.0]
+    columns = [1, 1, 2]
+    m3 = CRSMatrix(addres, columns, values)
+    @test m1 + m2 == m3
+
+    #{{7, 2, 15}, {0, 1, 0}, {3, 0, 81}, {0, 0, -1}} + {{1, 0, 0}, {0, 5, 0}, {4, 5, 0}, {0, 0, 0}} == {{8, 2, 15}, {0, 6, 0}, {7, 5, 81}, {0, 0, -1}}
+    addres = [1, 4, 5, 7, 8]
+    values = [7.0, 2.0, 15.0, 1.0, 3.0, 81.0, -1.0]
+    columns = [1, 2, 3, 2, 1, 3, 3]
+    m1 = CRSMatrix(addres, columns, values)
+    addres = [1, 2, 3, 5, 5]
+    values = [1.0, 5.0, 4.0, 5.0]
+    columns = [1, 2, 1, 2]
+    m2 = CRSMatrix(addres, columns, values)
+    addres = [1, 4, 5, 8, 9]
+    values = [8.0, 2.0, 15.0, 6.0, 7.0, 5.0, 81.0, -1.0]
+    columns = [1, 2, 3, 2, 1, 2, 3, 3]
+    m3 = CRSMatrix(addres, columns, values)
+    @test m1 + m2 == m3
+
+    expected_message = "Размеры матриц различны, сложение невозможно"
+    @test_throws ErrorException(expected_message) begin
+        addres = [1, 3, 4, 5, 5]
+        values = [7.0, 2.0, 1.0, 3.0]
+        columns = [1, 2, 2, 1]
+        m1 = CRSMatrix(addres, columns, values)
+        addres = [1, 2, 3, 5]
+        values = [1.0, 5.0, 4.0, 5.0]
+        columns = [1, 2, 1, 2]
+        m2 = CRSMatrix(addres, columns, values)
+        m3 = m1 + m2
+    end
+
 end
