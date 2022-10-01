@@ -35,3 +35,5 @@ function Base.:*(c::CRSMatrix, vector::Vector)
 end
 
 end #module MySparse
+
+#TODO сборка матрицы; доспуп к элементам по идексам; сложение матриц; 
