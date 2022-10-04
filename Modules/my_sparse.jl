@@ -94,6 +94,11 @@ function Base.:(==)(m1::CRSMatrix, m2::CRSMatrix)
     m1.cols != m2.cols && return false 
     return true
 end
+
+function Base.:*(c::CRSMatrix, number::Real)
+    return CRSMatrix(c.addres, c.columns, c.values*number)
+end
+
 end #module MySparse
 
 #TODO сборка матрицы; сложение матриц; 
