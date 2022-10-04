@@ -101,4 +101,4 @@ end
 
 end #module MySparse
 
-#TODO сборка матрицы; сложение матриц; 
+#TODO сборка матрицы;
