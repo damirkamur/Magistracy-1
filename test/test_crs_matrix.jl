@@ -145,3 +145,29 @@ end
     end
 
 end
+
+@testset verbose = true "Умножение матрицы на скаляр" begin
+    #{{1, 0}, {0, 1}} * 2 = {{2, 0}, {0, 2}}
+    addres = [1, 2, 3]
+    values = [1.0, 1.0]
+    columns = [1, 2]
+    m1 = CRSMatrix(addres, columns, values)
+    addres = [1, 2, 3]
+    values = [2.0, 2.0]
+    columns = [1, 2]
+    m2 = CRSMatrix(addres, columns, values)
+    number = 2.0
+    @test m2 == m1*number
+
+    #{{6, 3, 15}, {0, 9, 0}, {3, 0, 81}} * 2/3 = {{4, 2, 10},{0, 6, 0},{2, 0, 54}}
+    addres = [1,4,5,7]
+    values = [6.0, 3.0, 15.0, 9.0, 3.0, 81.0]
+    columns = [1, 2, 3, 2, 1, 3]
+    m1 = CRSMatrix(addres, columns, values)
+    addres = [1,4,5,7]
+    values = [4.0, 2.0, 10.0, 6.0, 2.0, 54.0]
+    columns = [1, 2, 3, 2, 1, 3]
+    m2 = CRSMatrix(addres, columns, values)
+    number = 2.0/3.0
+    @test m2 == m1*number
+end
