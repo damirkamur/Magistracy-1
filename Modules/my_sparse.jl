@@ -1,6 +1,6 @@
 module MySparse
 
-export CSRMatrix, solve, CSRMatrix_from_RCV
+export CSRMatrix, solve, CSRMatrix_from_RCV, get_D, get_L, get_U, get_LDU
 
 mutable struct CSRMatrix
     addres::Vector{Int64}
@@ -212,6 +212,41 @@ function _solve_SOR(A::CSRMatrix, f::Vector{<:Real}, ω::Float64)::Vector{<:Real
     [1.0] #TODO
 end
 
+function _get_LDU(A::CSRMatrix, param::Symbol)
+    condition_function = Dict(
+        :L => (x, y) -> x < y,
+        :D => (x, y) -> x == y,
+        :U => (x, y) -> x > y,
+    )
+    rows = Vector{Int64}()
+    cols = Vector{Int64}()
+    vals = Float64[]
+
+    for i in 1:A.rows
+        ind1 = A.addres[i]
+        ind2 = A.addres[i+1]-1
+        d = Dict()
+        for j in ind1:ind2
+            d[A.columns[j]] = A.values[j]
+        end
+        for (col, val) in d
+            if condition_function[param](col, i)
+                push!(rows, i)
+                push!(cols, col)
+                push!(vals, val)
+            end
+        end
+    end
+
+    eer = A.rows - max(rows...)
+    return CSRMatrix_from_RCV(rows, cols, vals; end_empty_rows = eer)
+end
+
+get_L(A::CSRMatrix)::CSRMatrix = _get_LDU(A, :L)
+get_D(A::CSRMatrix)::CSRMatrix = _get_LDU(A, :D)
+get_U(A::CSRMatrix)::CSRMatrix = _get_LDU(A, :U)
+get_LDU(A::CSRMatrix)::Tuple{CSRMatrix, CSRMatrix, CSRMatrix} = (_get_LDU(A, :L), _get_LDU(A, :D), _get_LDU(A, :U))
+
+
 end #module MySparse
 
-#TODO сборка матрицы;

@@ -337,3 +337,69 @@ end
         m = CSRMatrix_from_RCV(row, col, val)
     end
 end
+
+@testset verbose = true "Разложение на L-D-U матрицы" begin
+    @testset verbose = true "Получение матрицы D" begin
+        # {{1, 0, 3}, {0, 0, 0}, {5, 3, 4}}
+        addres = [1, 3, 3, 6]
+        values = [1.0, 3.0, 5.0, 3.0, 4.0]
+        columns = [1, 3, 1, 2, 3]
+        m = CSRMatrix(addres, columns, values)
+
+        (l1, d1, u1) = get_LDU(m)
+
+        l = get_L(m)
+        @test l[1, 1] == 0.0
+        @test l[1, 2] == 0.0
+        @test l[2, 1] == 0.0
+        @test l[2, 2] == 0.0
+        @test l[3, 1] == 5.0
+        @test l[3, 2] == 3.0
+        @test l1[1, 1] == 0.0
+        @test l1[1, 2] == 0.0
+        @test l1[2, 1] == 0.0
+        @test l1[2, 2] == 0.0
+        @test l1[3, 1] == 5.0
+        @test l1[3, 2] == 3.0
+
+        d = get_D(m)
+        @test d[1, 1] == 1.0
+        @test d[1, 2] == 0.0
+        @test d[1, 3] == 0.0
+        @test d[2, 1] == 0.0
+        @test d[2, 2] == 0.0
+        @test d[2, 3] == 0.0
+        @test d[3, 1] == 0.0
+        @test d[3, 2] == 0.0
+        @test d[3, 3] == 4.0
+        @test d1[1, 1] == 1.0
+        @test d1[1, 2] == 0.0
+        @test d1[1, 3] == 0.0
+        @test d1[2, 1] == 0.0
+        @test d1[2, 2] == 0.0
+        @test d1[2, 3] == 0.0
+        @test d1[3, 1] == 0.0
+        @test d1[3, 2] == 0.0
+        @test d1[3, 3] == 4.0
+
+        u = get_U(m)
+        @test u[1, 1] == 0.0
+        @test u[1, 2] == 0.0
+        @test u[1, 3] == 3.0
+        @test u[2, 1] == 0.0
+        @test u[2, 2] == 0.0
+        @test u[2, 3] == 0.0
+        @test u[3, 1] == 0.0
+        @test u[3, 2] == 0.0
+        @test u[3, 3] == 0.0
+        @test u1[1, 1] == 0.0
+        @test u1[1, 2] == 0.0
+        @test u1[1, 3] == 3.0
+        @test u1[2, 1] == 0.0
+        @test u1[2, 2] == 0.0
+        @test u1[2, 3] == 0.0
+        @test u1[3, 1] == 0.0
+        @test u1[3, 2] == 0.0
+        @test u1[3, 3] == 0.0
+    end
+end
