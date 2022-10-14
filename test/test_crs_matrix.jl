@@ -228,10 +228,10 @@ end
         A = CSRMatrix(addres, columns, values)
         res = [1.0, 2.0, 3.0]
         f = [5.0, 5.0, 18.0]
-        @test_logs (:warn, "Невыполнено достаточное условие сходимости с строках: [1, 3]") (
+        @test_logs (:warn, "Невыполнено достаточное условие сходимости с строках: [1, 2, 3]") (
             :warn,
             "Достигнуто максимальное число итераций 100",
-        ) solve(A, f)
+        ) solve(A, f, solver=:Seidel)
     end
 
     @testset "Метод :SOR" begin
