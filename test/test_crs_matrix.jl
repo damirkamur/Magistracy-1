@@ -100,7 +100,7 @@ end
     end
 end
 
-@testset verbose = true "Сложение матриц" begin
+@testset verbose = true "Сложение/Вычитание матриц" begin
     #{{1, 0}, {0, 1}} + {{0, 0}, {1, 0}}} == {{1, 0}, {1, 1}}
     addres = [1, 2, 3]
     values = [1.0, 1.0]
@@ -131,6 +131,21 @@ end
     m3 = CSRMatrix(addres, columns, values)
     @test m1 + m2 == m3
 
+    #{{7, 2, 15}, {0, 1, 0}, {3, 0, 81}, {0, 0, -1}} - {{1, 0, 0}, {0, 5, 0}, {4, 5, 0}, {0, 0, 0}} == {{6, 2, 15}, {0, -4, 0}, {-1, -5, 81}, {0, 0, -1}}
+    addres = [1, 4, 5, 7, 8]
+    values = [7.0, 2.0, 15.0, 1.0, 3.0, 81.0, -1.0]
+    columns = [1, 2, 3, 2, 1, 3, 3]
+    m1 = CSRMatrix(addres, columns, values)
+    addres = [1, 2, 3, 5, 5]
+    values = [1.0, 5.0, 4.0, 5.0]
+    columns = [1, 2, 1, 2]
+    m2 = CSRMatrix(addres, columns, values)
+    addres = [1, 4, 5, 8, 9]
+    values = [6.0, 2.0, 15.0, -4.0, -1.0, -5.0, 81.0, -1.0]
+    columns = [1, 2, 3, 2, 1, 2, 3, 3]
+    m3 = CSRMatrix(addres, columns, values)
+    @test m1 - m2 == m3
+
     expected_message = "Размеры матриц различны, сложение невозможно"
     @test_throws ErrorException(expected_message) begin
         addres = [1, 3, 4, 5, 5]
@@ -157,32 +172,51 @@ end
     columns = [1, 2]
     m2 = CSRMatrix(addres, columns, values)
     number = 2.0
-    @test m2 == m1*number
+    @test m2 == m1 * number
 
     #{{6, 3, 15}, {0, 9, 0}, {3, 0, 81}} * 2/3 = {{4, 2, 10},{0, 6, 0},{2, 0, 54}}
-    addres = [1,4,5,7]
+    addres = [1, 4, 5, 7]
     values = [6.0, 3.0, 15.0, 9.0, 3.0, 81.0]
     columns = [1, 2, 3, 2, 1, 3]
     m1 = CSRMatrix(addres, columns, values)
-    addres = [1,4,5,7]
+    addres = [1, 4, 5, 7]
     values = [4.0, 2.0, 10.0, 6.0, 2.0, 54.0]
     columns = [1, 2, 3, 2, 1, 3]
     m2 = CSRMatrix(addres, columns, values)
-    number = 2.0/3.0
-    @test m2 == m1*number
+    number = 2.0 / 3.0
+    @test m2 == m1 * number
 end
 
 @testset verbose = true "Решение системы уравнений" begin
     @testset "Метод :Jacobi" begin
-        
+        #{{5.0, 0.0, 0.0}, {1.0, 2.0, 0.0}, {0.0, 0.0, 6.0}}.{1.0, 2.0, 3.0} == {5.0, 5.0, 18.0}
+        addres = [1, 2, 4, 5]
+        values = [5.0, 1.0, 2.0, 6.0]
+        columns = [1, 1, 2, 3]
+        A = CSRMatrix(addres, columns, values)
+        res = [1.0, 2.0, 3.0]
+        f = [5.0, 5.0, 18.0]
+        @test solve(A, f) == [1.0, 2.0, 3.0]
+
+        #{{0.0, 2.0, 3.0}, {0.0, 0.0, 0.0}, {0.0, 6.0, 0.0}}.{1.0, 2.0, 3.0} == {13.0, 0.0, 12.0}
+        addres = [1, 3, 3, 4]
+        values = [2.0, 3.0, 6.0]
+        columns = [2, 3, 2]
+        A = CSRMatrix(addres, columns, values)
+        res = [1.0, 2.0, 3.0]
+        f = [5.0, 5.0, 18.0]
+        @test_logs (:warn, "Невыполнено достаточное условие сходимости с строках: [1, 3]") (
+            :warn,
+            "Достигнуто максимальное число итераций 100",
+        ) solve(A, f)
     end
 
     @testset "Метод :Seidel" begin
-        
+
     end
 
     @testset "Метод :SOR" begin
-        
+
     end
 
     expected_message = "Неизвестный тип решателя \":Solver\". Доступные: :Jacobi, :Seidel, :SOR"
@@ -191,6 +225,6 @@ end
         values = [1.0, 1.0]
         columns = [1, 2]
         m1 = CSRMatrix(addres, columns, values)
-        solve(m1, [1.0, 2.0]; solver=:Solver)
+        solve(m1, [1.0, 2.0]; solver = :Solver)
     end
 end
