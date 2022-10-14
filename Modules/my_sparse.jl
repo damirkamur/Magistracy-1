@@ -102,7 +102,11 @@ function Base.:*(c::CSRMatrix, number::Real)::CSRMatrix
 end
 
 function solve(A::CSRMatrix, f::Vector{<:Real}; solver::Symbol=:Jacobi, ω::Float64=1.95, ε::Float64=1.0e-3, max_iter::Int64=100)::Vector{<:Real}
-    #TODO проверка на размерности
+    if A.rows != A.cols
+        throw(ArgumentError("Матрица имеет некорректную размерность для расчета СЛАУ: $(A.rows)x$(A.cols)"))
+    elseif A.rows != length(f)
+        throw(ArgumentError("Размерность матрицы $(A.rows) не совпадает с размерностью правой части $(length(f))"))
+    end
     if solver == :Jacobi
         return _solve_Jacobi(A, f, ε, max_iter)
     elseif solver == :Seidel
