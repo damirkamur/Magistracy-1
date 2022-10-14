@@ -337,3 +337,29 @@ end
         m = CSRMatrix_from_RCV(row, col, val)
     end
 end
+@testset verbose = true "Разложение на L-D-U матрицы" begin
+    @testset verbose = true "Получение матрицы D" begin
+        # {{1, 0, 0}, {0, 0, 0}, {5, 3, 4}}
+        addres = [1, 2, 2, 5]
+        values = [1.0, 5.0, 3.0, 4.0]
+        columns = [1, 1, 2, 3]
+        m = get_D(CSRMatrix(addres, columns, values))
+        @test m[1, 1] == 1.0
+        @test m[2, 2] == 0.0
+        @test m[3, 3] == 4.0
+    end
+
+    @testset verbose = true "Получение матрицы L" begin
+        # {{1, 0, 0}, {0, 0, 0}, {5, 3, 4}}
+        addres = [1, 2, 2, 5]
+        values = [1.0, 5.0, 3.0, 4.0]
+        columns = [1, 1, 2, 3]
+        m = get_L(CSRMatrix(addres, columns, values))
+        @test m[1, 1] == 0.0
+        @test m[2, 1] == 0.0
+        @test m[3, 1] == 5.0
+        @test m[3, 2] == 3.0
+        @test m[3, 3] == 0.0
+    end    
+
+end

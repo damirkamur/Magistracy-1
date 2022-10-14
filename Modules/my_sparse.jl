@@ -1,6 +1,6 @@
 module MySparse
 
-export CSRMatrix, solve, CSRMatrix_from_RCV
+export CSRMatrix, solve, CSRMatrix_from_RCV, get_D, get_L
 
 mutable struct CSRMatrix
     addres::Vector{Int64}
@@ -210,6 +210,57 @@ end
 
 function _solve_SOR(A::CSRMatrix, f::Vector{<:Real}, ω::Float64)::Vector{<:Real}
     [1.0] #TODO
+end
+
+function get_D(A::CSRMatrix)::CSRMatrix
+    d_add = [1]
+    d_columns = Int64[]
+    d_values = Float64[]
+    kol = 1
+    for i in 1:A.rows
+        ind1 = A.addres[i]
+        ind2 = A.addres[i+1]-1
+        d = Dict()
+        for j in ind1:ind2
+            d[A.columns[j]] = A.values[j]
+        end
+        d_ii = get(d, i, 0.0)
+        if d_ii != 0.0
+            push!(d_columns, i)
+            push!(d_values, d_ii)
+            kol += 1
+        end
+        push!(d_add, kol)
+    end
+
+    return CSRMatrix(d_add, d_columns, d_values)
+end
+
+function get_L(A::CSRMatrix)::CSRMatrix
+    l_add = [1]
+    l_columns = Int64[]
+    l_values = Float64[]
+    kol = 1
+    for i in 1:A.rows
+        ind1 = A.addres[i]
+        ind2 = A.addres[i+1]-1
+        d = Dict()
+        for j in ind1:ind2
+            d[A.columns[j]] = A.values[j]
+        end
+        while A.columns[ind1] < i
+            l_ij = get(d, ind1, 0.0)
+            if l_ij != 0
+                push!(l_columns, ind1)
+                push!(l_values, l_ij)
+                kol += 1
+            end    
+            ind1+=1
+        end
+        push!(l_add, kol)    
+    end
+
+    return CSRMatrix(l_add, l_columns, l_values)
 end
 
 end #module MySparse
