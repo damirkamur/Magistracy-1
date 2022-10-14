@@ -1,15 +1,15 @@
 module MySparse
 
-export CSRMatrix, solve
+export CSRMatrix, solve, CSRMatrix_from_RCV
 
 mutable struct CSRMatrix
     addres::Vector{Int64}
     columns::Vector{Int64}
-    values::Vector{Float64}
+    values::Vector{<:Real}
     rows::Int64
     cols::Int64
 
-    function CSRMatrix(addres::Vector{Int64}, columns::Vector{Int64}, values::Vector{Float64})
+    function CSRMatrix(addres::Vector{Int64}, columns::Vector{Int64}, values::Vector{<:Real})
         addres[end] != length(values) + 1 && throw(ArgumentError("Последний индекс вектора `addres` Должен равняться числу элементов вектора `values` + 1"))
         length(columns) != length(values) && throw(ArgumentError("Размерность вектора `columns` должна равняться размерности вектора `values`"))
         for i in 1:length(addres)-1
@@ -31,11 +31,37 @@ function Base.show(io::IO, c::CSRMatrix)
     println(io, "└cols: $(c.cols)")
 end
 
+function CSRMatrix_from_RCV(row::Vector{Int64}, col::Vector{Int64}, val::Vector{<:Real}; end_empty_rows::Int64=0)::CSRMatrix
+    if !allequal((x->length(x)).([row, col, val]))
+        throw(ArgumentError("Размерности векторов row, col и val должны быть одинаковыми"))
+    end
+    for i in 1:length(row)-1
+        for j in i:length(row)  
+            if row[i] > row[j]
+                (row[i], row[j], col[i], col[j], val[i], val[j]) = (row[j], row[i], col[j], col[i], val[j], val[i])
+            elseif row[i] == row[j] && col[i] > col[j]
+                (col[i], col[j], val[i], val[j]) = (col[j], col[i], val[j], val[i])
+            end
+        end
+    end
+
+    addres = [1]
+    d = Dict()
+    for i in 1:row[end]+end_empty_rows
+        d[i] = count(x->x==i, row)
+    end    
+    for i in sort(collect(d))
+        push!(addres, addres[end] + i[2])
+    end
+
+    return CSRMatrix(addres, col, val)
+end
+
 function Base.:*(c::CSRMatrix, vector::Vector{<:Real})::Vector{<:Real}
     length(vector) == c.cols || throw(error("Размерности матрицы и вектора различны. Умножение невозможно"))
     result = Float64[]
     for i in 1:length(c.addres)-1
-        push!(result, sum([c.values[j] * vector[c.columns[j]] for j in c.addres[i]:c.addres[i+1]-1]))
+        push!(result, sum([0.0, [c.values[j] * vector[c.columns[j]] for j in c.addres[i]:c.addres[i+1]-1]...]))
     end
     return result
 end
@@ -97,9 +123,8 @@ function Base.:(==)(m1::CSRMatrix, m2::CSRMatrix)::Bool
     return true
 end
 
-function Base.:*(c::CSRMatrix, number::Real)::CSRMatrix
-    return CSRMatrix(c.addres, c.columns, c.values*number)
-end
+Base.:*(c::CSRMatrix, number::Real)::CSRMatrix = CSRMatrix(c.addres, c.columns, c.values*number)
+Base.:/(c::CSRMatrix, number::Real)::CSRMatrix = CSRMatrix(c.addres, c.columns, c.values/number)
 
 function solve(A::CSRMatrix, f::Vector{<:Real}; solver::Symbol=:Jacobi, ω::Float64=1.95, ε::Float64=1.0e-3, max_iter::Int64=100)::Vector{<:Real}
     if A.rows != A.cols
