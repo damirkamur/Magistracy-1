@@ -9,7 +9,7 @@ mutable struct CSRMatrix
     rows::Int64
     cols::Int64
 
-    function CSRMatrix(addres::Vector{Int64}, columns::Vector{Int64}, values::Vector{<:Real})
+    function CSRMatrix(addres::Vector{Int64}, columns::Vector{Int64}, values::Vector{<:Real}; end_empty_cols::Int64=0)
         addres[end] != length(values) + 1 && throw(ArgumentError("Последний индекс вектора `addres` Должен равняться числу элементов вектора `values` + 1"))
         length(columns) != length(values) && throw(ArgumentError("Размерность вектора `columns` должна равняться размерности вектора `values`"))
         for i in 1:length(addres)-1
@@ -17,7 +17,7 @@ mutable struct CSRMatrix
         end
         all((x->x>0).(columns)) || throw(ArgumentError("`columns` должен быть положительным вектором"))
         rows = length(addres) - 1
-        cols = max(columns...)
+        cols = max(columns...)+end_empty_cols
         new(addres, columns, values, rows, cols)    
     end
 end
@@ -65,7 +65,6 @@ function Base.:*(c::CSRMatrix, vector::Vector{<:Real})::Vector{<:Real}
     end
     return result
 end
-
 
 function Base.getindex(c::CSRMatrix, i::Int64, j::Int64)::Real
     1 ≤ i ≤ c.rows || throw(error("Индекс строки выходит за пределы размерности матрицы"))
@@ -126,25 +125,25 @@ end
 Base.:*(c::CSRMatrix, number::Real)::CSRMatrix = CSRMatrix(c.addres, c.columns, c.values*number)
 Base.:/(c::CSRMatrix, number::Real)::CSRMatrix = CSRMatrix(c.addres, c.columns, c.values/number)
 
-function solve(A::CSRMatrix, f::Vector{<:Real}; solver::Symbol=:Jacobi, ω::Float64=1.95, ε::Float64=1.0e-3, max_iter::Int64=100)::Vector{<:Real}
+function solve(A::CSRMatrix, f::Vector{<:Real}; solver::Symbol=:Jacobi, ω::Float64=1.95, ε::Float64=1.0e-3, max_iter::Int64=1000, norm::Symbol=:L1)::Vector{<:Real}
     if A.rows != A.cols
         throw(ArgumentError("Матрица имеет некорректную размерность для расчета СЛАУ: $(A.rows)x$(A.cols)"))
     elseif A.rows != length(f)
         throw(ArgumentError("Размерность матрицы $(A.rows) не совпадает с размерностью правой части $(length(f))"))
     end
     if solver == :Jacobi
-        return _solve_Jacobi(A, f, ε, max_iter)
+        return _solve_Jacobi(A, f, ε, max_iter, norm)
     elseif solver == :Seidel
-        return _solve_Seidel(A, f, ε, max_iter)
+        return _solve_Seidel(A, f, ε, max_iter, norm)
     elseif solver == :SOR
-        return _solve_SOR(A, f, ω)
+        return _solve_SOR(A, f, ω, ε, max_iter, norm)
     else
         throw(ArgumentError("Неизвестный тип решателя \":$solver\". Доступные: :Jacobi, :Seidel, :SOR"))
     end
 end
 
-function _solve_Jacobi(A::CSRMatrix, f::Vector{<:Real}, ε::Float64, max_iter::Int64)::Vector{<:Real}
-    _check_Jacobi(A)
+function _solve_Jacobi(A::CSRMatrix, f::Vector{<:Real}, ε::Float64, max_iter::Int64, norm::Symbol)::Vector{<:Real}
+    _check(A, :Jacobi)
     
     u_old = zeros(Float64, A.rows)
     u = zeros(Float64, A.rows)
@@ -166,7 +165,7 @@ function _solve_Jacobi(A::CSRMatrix, f::Vector{<:Real}, ε::Float64, max_iter::I
             u[i] = s / get(d, i, 0.0)
         end
         
-        if sum(abs.(u - u_old)) < ε
+        if _solve_residual(A, u, f, norm) < ε
             break
         end
         u_old .= u
@@ -179,6 +178,108 @@ function _solve_Jacobi(A::CSRMatrix, f::Vector{<:Real}, ε::Float64, max_iter::I
     end
 
     return u
+end
+
+function _solve_Seidel(A::CSRMatrix, f::Vector{<:Real}, ε::Float64, max_iter::Int64, norm::Symbol)::Vector{<:Real}
+    _check(A, :Seidel)
+    
+    u_old = zeros(Float64, A.rows)
+    u = zeros(Float64, A.rows)
+
+    iter = 0
+    while true
+        u_old .= u
+        for i in 1:A.rows
+            ind1 = A.addres[i]
+            ind2 = A.addres[i+1]-1
+            d = Dict()
+            for j in ind1:ind2
+                d[A.columns[j]] = A.values[j]
+            end
+            s = 0.0
+            for (col, val) in d
+                s -= col != i ? val * u[col] : 0.0
+            end
+            s+=f[i]
+            u[i] = s / get(d, i, 0.0)
+        end
+        
+        if _solve_residual(A, u, f, norm) < ε
+            break
+        end
+        
+        iter += 1
+        if iter >= max_iter
+            @warn "Достигнуто максимальное число итераций $max_iter"
+            break
+        end
+    end
+
+    return u
+end
+
+function _solve_SOR(A::CSRMatrix, f::Vector{<:Real}, ω::Float64, ε::Float64, max_iter::Int64, norm::Symbol)::Vector{<:Real}
+    _check(A, :SOR)
+    
+    u_old = ones(Float64, A.rows)
+    u = ones(Float64, A.rows)
+    R = get_D(A) / ω  + get_L(A)
+
+    iter = 0
+    while true
+        Au = A * u_old
+        Ru = R * u_old
+        for i in 1:R.rows
+            ind1 = R.addres[i]
+            ind2 = R.addres[i+1]-1
+            rhs = f[i] - Au[i] + Ru[i]
+            d = Dict()
+            for j in ind1:ind2
+                d[R.columns[j]] = R.values[j]
+            end
+            s = 0.0
+            for (col, val) in d
+                s += col < i ? val * u[col] : 0.0
+            end
+            rhs -= s
+            u[i] = rhs / R[i, i]
+        end
+        
+        if _solve_residual(A, u, f, norm) < ε
+            break
+        end
+        u_old .= u
+        
+        iter += 1
+        if iter >= max_iter
+            @warn "Достигнуто максимальное число итераций $max_iter"
+            break
+        end
+    end
+
+    return u
+end
+
+function _solve_residual(A::CSRMatrix, u::Vector{<:Real}, f::Vector{<:Real}, norm::Symbol)::Float64 
+    rhs = A * u - f
+    if norm == :L1
+        return L1_norm(rhs)
+    elseif norm == :L2
+        return L2_norm(rhs)
+    end
+end
+
+L1_norm(vec::Vector{<:Real})::Float64 = sum((x->abs(x)).(vec))
+L2_norm(vec::Vector{<:Real})::Float64 = sqrt(sum((x->x*x).(vec)))
+
+function _check(A::CSRMatrix, param::Symbol)::Nothing
+    if param == :Jacobi
+        _check_Jacobi(A)
+    elseif param in [:Seidel, :SOR]
+        _check_Seidel_SOR(A)
+    else
+        throw(ArgumentError("Неизвестный параметр :$(param)"))
+    end
 end
 
 function _check_Jacobi(A::CSRMatrix)::Nothing
@@ -204,45 +305,7 @@ function _check_Jacobi(A::CSRMatrix)::Nothing
     end
 end
 
-function _solve_Seidel(A::CSRMatrix, f::Vector{<:Real}, ε::Float64, max_iter::Int64)::Vector{<:Real}
-    _check_Seidel(A)
-    
-    u_old = zeros(Float64, A.rows)
-    u = zeros(Float64, A.rows)
-
-    iter = 0
-    while true
-        u_old .= u
-        for i in 1:A.rows
-            ind1 = A.addres[i]
-            ind2 = A.addres[i+1]-1
-            d = Dict()
-            for j in ind1:ind2
-                d[A.columns[j]] = A.values[j]
-            end
-            s = 0.0
-            for (col, val) in d
-                s -= col != i ? val * u[col] : 0.0
-            end
-            s+=f[i]
-            u[i] = s / get(d, i, 0.0)
-        end
-        
-        if sum(abs.(u - u_old)) < ε
-            break
-        end
-        
-        iter += 1
-        if iter >= max_iter
-            @warn "Достигнуто максимальное число итераций $max_iter"
-            break
-        end
-    end
-
-    return u
-end
-
-function _check_Seidel(A::CSRMatrix)::Nothing
+function _check_Seidel_SOR(A::CSRMatrix)::Nothing
     bad_rows = Vector{Int64}()
     for i in 1:A.rows
         ind1 = A.addres[i]
@@ -259,10 +322,6 @@ function _check_Seidel(A::CSRMatrix)::Nothing
     if !isempty(bad_rows)
         @warn "Невыполнено достаточное условие сходимости с строках: $bad_rows"
     end
-end
-
-function _solve_SOR(A::CSRMatrix, f::Vector{<:Real}, ω::Float64)::Vector{<:Real}
-    [1.0] #TODO
 end
 
 function _get_LDU(A::CSRMatrix, param::Symbol)
@@ -291,7 +350,7 @@ function _get_LDU(A::CSRMatrix, param::Symbol)
         end
     end
 
-    eer = A.rows - max(rows...)
+    eer = A.rows - max([0, rows...]...)
     return CSRMatrix_from_RCV(rows, cols, vals; end_empty_rows = eer)
 end
 

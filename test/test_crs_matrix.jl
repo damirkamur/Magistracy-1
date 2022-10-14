@@ -1,4 +1,5 @@
 @from "../Modules/my_sparse.jl" using MySparse
+@from "../Modules/tools.jl" using Tools
 
 @testset verbose = true "Умножение CRS матрицы на вектор" begin
     # {{1, 0, 0}, {0, 2, 0}, {5, 3, 4}}.{1, 2, 3} == {1, 4, 23}
@@ -239,8 +240,9 @@ end
         A = CSRMatrix(addres, columns, values)
         res = [1.0, 2.0, 3.0]
         f = [5.0, 5.0, 18.0]
-        @test solve(A, f) == [1.0, 2.0, 3.0]
-        @test solve(A, f, solver = :Seidel) == res
+        @test L2_norm(A * solve(A, f) - f) < 10 - 5
+        @test L2_norm(A * solve(A, f; solver = :Seidel) - f) < 10 - 5
+        @test L2_norm(A * solve(A, f; solver = :SOR, norm = :L2) - f) < 10 - 5
 
         #{{3.0, 2.3, 0.0, 0.0}, {0.0, 3.5, 0.0, 0.0}, {0.0, 0.0, 8.0, 7.0}, {-1.0, 0.0, 3.0, 15.0}}.{2., 0., 9., -1.} = {6., 0., 65., 10.}
         addres = [1, 3, 4, 6, 9]
@@ -249,10 +251,11 @@ end
         A = CSRMatrix(addres, columns, values)
         res = [2.0, 0.0, 9.0, -1.0]
         f = [6.0, 0.0, 65.0, 10.0]
-        @test solve(A, f; ε = 1.0e-7) ≈ res
-        @test solve(A, f; solver = :Seidel, ε = 1.0e-7) ≈ res
+        @test L2_norm(A * solve(A, f; ε = 1.0e-7) - f) < 10 - 5
+        @test L2_norm(A * solve(A, f; solver = :Seidel, ε = 1.0e-7) - f) < 10 - 5
+        @test L2_norm(A * solve(A, f; solver = :SOR, norm = :L2) - f) < 10 - 5
 
-        #{{0.0, 2.0, 3.0}, {0.0, 0.0, 0.0}, {0.0, 6.0, 0.0}}.{1.0, 2.0, 3.0} == {13.0, 0.0, 12.0}
+        # {{0.0, 2.0, 3.0}, {0.0, 0.0, 0.0}, {0.0, 6.0, 0.0}}.{1.0, 2.0, 3.0} == {13.0, 0.0, 12.0}
         addres = [1, 3, 3, 4]
         values = [2.0, 3.0, 6.0]
         columns = [2, 3, 2]
@@ -261,14 +264,14 @@ end
         f = [13.0, 0.0, 12.0]
         @test_logs (:warn, "Невыполнено достаточное условие сходимости с строках: [1, 3]") (
             :warn,
-            "Достигнуто максимальное число итераций 100",
+            "Достигнуто максимальное число итераций 1000",
         ) solve(A, f)
         @test_logs (
             :warn,
             "Невыполнено достаточное условие сходимости с строках: [1, 2, 3]",
-        ) (:warn, "Достигнуто максимальное число итераций 100") solve(
+        ) (:warn, "Достигнуто максимальное число итераций 1000") solve(
             A,
-            f,
+            f;
             solver = :Seidel,
         )
     end
