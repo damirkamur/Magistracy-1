@@ -135,7 +135,7 @@ function solve(A::CSRMatrix, f::Vector{<:Real}; solver::Symbol=:Jacobi, ω::Floa
     if solver == :Jacobi
         return _solve_Jacobi(A, f, ε, max_iter)
     elseif solver == :Seidel
-        return _solve_Seidel(A, f)
+        return _solve_Seidel(A, f, ε, max_iter)
     elseif solver == :SOR
         return _solve_SOR(A, f, ω)
     else
@@ -204,8 +204,61 @@ function _check_Jacobi(A::CSRMatrix)::Nothing
     end
 end
 
-function _solve_Seidel(A::CSRMatrix, f::Vector{<:Real})::Vector{<:Real}
-    [1.0] #TODO
+function _solve_Seidel(A::CSRMatrix, f::Vector{<:Real}, ε::Float64, max_iter::Int64)::Vector{<:Real}
+    _check_Seidel(A)
+    
+    u_old = zeros(Float64, A.rows)
+    u = zeros(Float64, A.rows)
+
+    iter = 0
+    while true
+        u_old .= u
+        for i in 1:A.rows
+            ind1 = A.addres[i]
+            ind2 = A.addres[i+1]-1
+            d = Dict()
+            for j in ind1:ind2
+                d[A.columns[j]] = A.values[j]
+            end
+            s = 0.0
+            for (col, val) in d
+                s -= col != i ? val * u[col] : 0.0
+            end
+            s+=f[i]
+            u[i] = s / get(d, i, 0.0)
+        end
+        
+        if sum(abs.(u - u_old)) < ε
+            break
+        end
+        
+        iter += 1
+        if iter >= max_iter
+            @warn "Достигнуто максимальное число итераций $max_iter"
+            break
+        end
+    end
+
+    return u
+end
+
+function _check_Seidel(A::CSRMatrix)::Nothing
+    bad_rows = Vector{Int64}()
+    for i in 1:A.rows
+        ind1 = A.addres[i]
+        ind2 = A.addres[i+1]-1
+        d = Dict()
+        for j in ind1:ind2
+            d[A.columns[j]] = A.values[j]
+        end
+        if get(d, i, 0.0) <= 0.0
+            push!(bad_rows, i)
+        end
+    end
+
+    if !isempty(bad_rows)
+        @warn "Невыполнено достаточное условие сходимости с строках: $bad_rows"
+    end
 end
 
 function _solve_SOR(A::CSRMatrix, f::Vector{<:Real}, ω::Float64)::Vector{<:Real}

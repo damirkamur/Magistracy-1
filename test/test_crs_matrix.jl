@@ -200,7 +200,7 @@ end
 end
 
 @testset verbose = true "Решение системы уравнений" begin
-    @testset "Ошибки размерностей" begin
+    @testset "Ошибки" begin
         # {{0.0, 1.0, 2.0},{1.0, 0.0, 0.0}}.{..., ..., ...} == {1.0, 2.0, 3.0}
         addres = [1, 3, 4]
         values = [1.0, 2.0, 1.0]
@@ -220,9 +220,18 @@ end
         @test_throws ArgumentError(expected_message) begin
             solve(A, [1.0, 2.0, 3.0])
         end
+
+        expected_message = "Неизвестный тип решателя \":Solver\". Доступные: :Jacobi, :Seidel, :SOR"
+        @test_throws ArgumentError(expected_message) begin
+            addres = [1, 2, 3]
+            values = [1.0, 1.0]
+            columns = [1, 2]
+            m1 = CSRMatrix(addres, columns, values)
+            solve(m1, [1.0, 2.0]; solver = :Solver)
+        end
     end
 
-    @testset "Метод :Jacobi" begin
+    @testset "Решения" begin
         #{{5.0, 0.0, 0.0}, {1.0, 2.0, 0.0}, {0.0, 0.0, 6.0}}.{1.0, 2.0, 3.0} == {5.0, 5.0, 18.0}
         addres = [1, 2, 4, 5]
         values = [5.0, 1.0, 2.0, 6.0]
@@ -231,6 +240,17 @@ end
         res = [1.0, 2.0, 3.0]
         f = [5.0, 5.0, 18.0]
         @test solve(A, f) == [1.0, 2.0, 3.0]
+        @test solve(A, f, solver = :Seidel) == res
+
+        #{{3.0, 2.3, 0.0, 0.0}, {0.0, 3.5, 0.0, 0.0}, {0.0, 0.0, 8.0, 7.0}, {-1.0, 0.0, 3.0, 15.0}}.{2., 0., 9., -1.} = {6., 0., 65., 10.}
+        addres = [1, 3, 4, 6, 9]
+        values = [3.0, 2.3, 3.5, 8.0, 7.0, -1.0, 3.0, 15.0]
+        columns = [1, 2, 2, 3, 4, 1, 3, 4]
+        A = CSRMatrix(addres, columns, values)
+        res = [2.0, 0.0, 9.0, -1.0]
+        f = [6.0, 0.0, 65.0, 10.0]
+        @test solve(A, f; ε = 1.0e-7) ≈ res
+        @test solve(A, f; solver = :Seidel, ε = 1.0e-7) ≈ res
 
         #{{0.0, 2.0, 3.0}, {0.0, 0.0, 0.0}, {0.0, 6.0, 0.0}}.{1.0, 2.0, 3.0} == {13.0, 0.0, 12.0}
         addres = [1, 3, 3, 4]
@@ -238,28 +258,19 @@ end
         columns = [2, 3, 2]
         A = CSRMatrix(addres, columns, values)
         res = [1.0, 2.0, 3.0]
-        f = [5.0, 5.0, 18.0]
+        f = [13.0, 0.0, 12.0]
         @test_logs (:warn, "Невыполнено достаточное условие сходимости с строках: [1, 3]") (
             :warn,
             "Достигнуто максимальное число итераций 100",
         ) solve(A, f)
-    end
-
-    @testset "Метод :Seidel" begin
-
-    end
-
-    @testset "Метод :SOR" begin
-
-    end
-
-    expected_message = "Неизвестный тип решателя \":Solver\". Доступные: :Jacobi, :Seidel, :SOR"
-    @test_throws ArgumentError(expected_message) begin
-        addres = [1, 2, 3]
-        values = [1.0, 1.0]
-        columns = [1, 2]
-        m1 = CSRMatrix(addres, columns, values)
-        solve(m1, [1.0, 2.0]; solver = :Solver)
+        @test_logs (
+            :warn,
+            "Невыполнено достаточное условие сходимости с строках: [1, 2, 3]",
+        ) (:warn, "Достигнуто максимальное число итераций 100") solve(
+            A,
+            f,
+            solver = :Seidel,
+        )
     end
 end
 
