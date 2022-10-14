@@ -188,6 +188,28 @@ end
 end
 
 @testset verbose = true "Решение системы уравнений" begin
+    @testset "Ошибки размерностей" begin
+        # {{0.0, 1.0, 2.0},{1.0, 0.0, 0.0}}.{..., ..., ...} == {1.0, 2.0, 3.0}
+        addres = [1, 3, 4]
+        values = [1.0, 2.0, 1.0]
+        columns = [2, 3, 1]
+        A = CSRMatrix(addres, columns, values)
+        expected_message = "Матрица имеет некорректную размерность для расчета СЛАУ: 2x3"
+        @test_throws ArgumentError(expected_message) begin
+            solve(A, [1.0, 2.0, 3.0])
+        end
+
+        # {{0.0, 1.0},{1.0, 0.0}}.{..., ..., ...} == {1.0, 2.0, 3.0}
+        addres = [1, 2, 3]
+        values = [1.0, 1.0]
+        columns = [2, 1]
+        A = CSRMatrix(addres, columns, values)
+        expected_message = "Размерность матрицы 2 не совпадает с размерностью правой части 3"
+        @test_throws ArgumentError(expected_message) begin
+            solve(A, [1.0, 2.0, 3.0])
+        end
+    end
+
     @testset "Метод :Jacobi" begin
         #{{5.0, 0.0, 0.0}, {1.0, 2.0, 0.0}, {0.0, 0.0, 6.0}}.{1.0, 2.0, 3.0} == {5.0, 5.0, 18.0}
         addres = [1, 2, 4, 5]
