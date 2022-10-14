@@ -31,7 +31,7 @@ function Base.show(io::IO, c::CSRMatrix)
     println(io, "└cols: $(c.cols)")
 end
 
-function Base.:*(c::CSRMatrix, vector::Vector{<:Real})
+function Base.:*(c::CSRMatrix, vector::Vector{<:Real})::Vector{<:Real}
     length(vector) == c.cols || throw(error("Размерности матрицы и вектора различны. Умножение невозможно"))
     result = Float64[]
     for i in 1:length(c.addres)-1
@@ -41,7 +41,7 @@ function Base.:*(c::CSRMatrix, vector::Vector{<:Real})
 end
 
 
-function Base.getindex(c::CSRMatrix, i::Int64, j::Int64)
+function Base.getindex(c::CSRMatrix, i::Int64, j::Int64)::Real
     1 ≤ i ≤ c.rows || throw(error("Индекс строки выходит за пределы размерности матрицы"))
     1 ≤ j ≤ c.cols || throw(error("Индекс столбца выходит за пределы размерности матрицы"))
     (ind1, ind2) = c.addres[i], c.addres[i+1]
@@ -56,7 +56,7 @@ function Base.getindex(c::CSRMatrix, i::Int64, j::Int64)
     return res
 end
 
-function Base.:+(m1::CSRMatrix, m2::CSRMatrix)
+function Base.:+(m1::CSRMatrix, m2::CSRMatrix)::CSRMatrix
     m1.cols != m2.cols  || m1.rows != m2.rows && throw(error("Размеры матриц различны, сложение невозможно"))
 
     addres = [1]
@@ -86,7 +86,9 @@ function Base.:+(m1::CSRMatrix, m2::CSRMatrix)
     return CSRMatrix(addres, columns, values)
 end
 
-function Base.:(==)(m1::CSRMatrix, m2::CSRMatrix)
+Base.:-(m1::CSRMatrix, m2::CSRMatrix)::CSRMatrix = m1 + m2 * (-1)
+
+function Base.:(==)(m1::CSRMatrix, m2::CSRMatrix)::Bool
     m1.addres != m2.addres && return false 
     m1.columns != m2.columns && return false 
     m1.values != m2.values && return false 
@@ -95,7 +97,7 @@ function Base.:(==)(m1::CSRMatrix, m2::CSRMatrix)
     return true
 end
 
-function Base.:*(c::CSRMatrix, number::Real)
+function Base.:*(c::CSRMatrix, number::Real)::CSRMatrix
     return CSRMatrix(c.addres, c.columns, c.values*number)
 end
 

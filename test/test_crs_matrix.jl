@@ -100,7 +100,7 @@ end
     end
 end
 
-@testset verbose = true "Сложение матриц" begin
+@testset verbose = true "Сложение/Вычитание матриц" begin
     #{{1, 0}, {0, 1}} + {{0, 0}, {1, 0}}} == {{1, 0}, {1, 1}}
     addres = [1, 2, 3]
     values = [1.0, 1.0]
@@ -130,6 +130,21 @@ end
     columns = [1, 2, 3, 2, 1, 2, 3, 3]
     m3 = CSRMatrix(addres, columns, values)
     @test m1 + m2 == m3
+
+    #{{7, 2, 15}, {0, 1, 0}, {3, 0, 81}, {0, 0, -1}} - {{1, 0, 0}, {0, 5, 0}, {4, 5, 0}, {0, 0, 0}} == {{6, 2, 15}, {0, -4, 0}, {-1, -5, 81}, {0, 0, -1}}
+    addres = [1, 4, 5, 7, 8]
+    values = [7.0, 2.0, 15.0, 1.0, 3.0, 81.0, -1.0]
+    columns = [1, 2, 3, 2, 1, 3, 3]
+    m1 = CSRMatrix(addres, columns, values)
+    addres = [1, 2, 3, 5, 5]
+    values = [1.0, 5.0, 4.0, 5.0]
+    columns = [1, 2, 1, 2]
+    m2 = CSRMatrix(addres, columns, values)
+    addres = [1, 4, 5, 8, 9]
+    values = [6.0, 2.0, 15.0, -4.0, -1.0, -5.0, 81.0, -1.0]
+    columns = [1, 2, 3, 2, 1, 2, 3, 3]
+    m3 = CSRMatrix(addres, columns, values)
+    @test m1 - m2 == m3
 
     expected_message = "Размеры матриц различны, сложение невозможно"
     @test_throws ErrorException(expected_message) begin
@@ -174,6 +189,13 @@ end
 
 @testset verbose = true "Решение системы уравнений" begin
     @testset "Метод :Jacobi" begin
+        #{{5.0, 0.0, 0.0}, {1.0, 2.0, 0.0}, {0.0, 0.0, 6.0}}.{1.0, 2.0, 3.0} == {5.0, 5.0, 18.0}
+        addres = [1, 2, 4, 5]
+        values = [5.0, 1.0, 2.0, 6.0]
+        columns = [1, 1, 2, 3]
+        A = CSRMatrix(addres, columns, values)
+        res = [1.0, 2.0, 3.0]
+        f = [5.0, 5.0, 18.0]
         
     end
 
