@@ -161,7 +161,7 @@ end
 
 end
 
-@testset verbose = true "Умножение матрицы на скаляр" begin
+@testset verbose = true "Умножение/Деление матрицы на скаляр" begin
     #{{1, 0}, {0, 1}} * 2 = {{2, 0}, {0, 2}}
     addres = [1, 2, 3]
     values = [1.0, 1.0]
@@ -185,6 +185,18 @@ end
     m2 = CSRMatrix(addres, columns, values)
     number = 2.0 / 3.0
     @test m2 == m1 * number
+
+    #{{6, 4, 15}, {0, 9, 0}, {3, 0, 80}} / 2 = {{3, 2, 7.5},{0, 4.5, 0},{1.5, 0, 40}}
+    addres = [1, 4, 5, 7]
+    values = [6.0, 4.0, 15.0, 9.0, 3.0, 80.0]
+    columns = [1, 2, 3, 2, 1, 3]
+    m1 = CSRMatrix(addres, columns, values)
+    addres = [1, 4, 5, 7]
+    values = [3.0, 2.0, 7.5, 4.5, 1.5, 40.0]
+    columns = [1, 2, 3, 2, 1, 3]
+    m2 = CSRMatrix(addres, columns, values)
+    number = 2.0
+    @test m2 == m1 / number
 end
 
 @testset verbose = true "Решение системы уравнений" begin
@@ -248,5 +260,80 @@ end
         columns = [1, 2]
         m1 = CSRMatrix(addres, columns, values)
         solve(m1, [1.0, 2.0]; solver = :Solver)
+    end
+end
+
+@testset verbose = true "Преобразование из удобного формата" begin
+    # {{1, 0, 0}, {0, 2, 0}, {5, 3, 4}}
+    addres = [1, 2, 3, 6]
+    values = [1.0, 2.0, 5.0, 3.0, 4.0]
+    columns = [1, 2, 1, 2, 3]
+    row = [1, 2, 3, 3, 3]
+    col = [1, 2, 1, 2, 3]
+    val = [1.0, 2.0, 5.0, 3.0, 4.0]
+    @test CSRMatrix(addres, columns, values) == CSRMatrix_from_RCV(row, col, val)
+
+    # {{1.0, 0.0, 7.0, 0.0}, {2.0, 3.0, 0.0, 0.0}, {9.0, 0.0, 0.0, 6.0},{5.0, 4.0, 3.0, 1.0}}
+    addres = [1, 3, 5, 7, 11]
+    values = [1.0, 7.0, 2.0, 3.0, 9.0, 6.0, 5.0, 4.0, 3.0, 1.0]
+    columns = [1, 3, 1, 2, 1, 4, 1, 2, 3, 4]
+    row = [4, 4, 4, 4, 3, 3, 2, 2, 1, 1]
+    col = [4, 3, 2, 1, 4, 1, 2, 1, 3, 1]
+    val = [1.0, 3.0, 4.0, 5.0, 6.0, 9.0, 3.0, 2.0, 7.0, 1.0]
+    @test CSRMatrix(addres, columns, values) == CSRMatrix_from_RCV(row, col, val)
+
+    # {{1.0, 0.0, 2.0}, {0.0, 0.0, 0.0}, {0.0, 4.0, 4.0}}
+    addres = [1, 3, 3, 5]
+    values = [1.0, 2.0, 4.0, 4.0]
+    columns = [1, 3, 2, 3]
+    row = [1, 1, 3, 3]
+    col = [3, 1, 3, 2]
+    val = [2.0, 1.0, 4.0, 4.0]
+    @test CSRMatrix(addres, columns, values) == CSRMatrix_from_RCV(row, col, val)
+
+    # {{1.0, 0.0, 2.0}, {0.0, 0.0, 1.0}}
+    addres = [1, 3, 4]
+    values = [1.0, 2.0, 1.0]
+    columns = [1, 3, 3]
+    row = [1, 1, 2]
+    col = [1, 3, 3]
+    val = [1.0, 2.0, 1.0]
+    @test CSRMatrix(addres, columns, values) == CSRMatrix_from_RCV(row, col, val)
+
+    # {{0.0, 0.0, 0.0},{0.0, 1.0, 2.0}, {0.0, 3.0, 4.0}}
+    addres = [1, 1, 3, 5]
+    values = [1.0, 2.0, 3.0, 4.0]
+    columns = [2, 3, 2, 3]
+    row = [2, 2, 3, 3]
+    col = [2, 3, 2, 3]
+    val = [1.0, 2.0, 3.0, 4.0]
+    @test CSRMatrix(addres, columns, values) == CSRMatrix_from_RCV(row, col, val)
+
+    # {{1.0, 2.0},{3.0, 4.0},{0.0, 0.0}}}
+    addres = [1, 3, 5, 5]
+    values = [1.0, 2.0, 3.0, 4.0]
+    columns = [1, 2, 1, 2]
+    row = [1, 1, 2, 2]
+    col = [1, 2, 1, 2]
+    val = [1.0, 2.0, 3.0, 4.0]
+    @test CSRMatrix(addres, columns, values) ==
+          CSRMatrix_from_RCV(row, col, val; end_empty_rows = 1)
+
+    # {{0.0, 0.0, 0.0}, {0.0, 0.0, 0.0},{0.0, 1.0, 0.0},{0.0, 2.0, 0.0},{0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}}
+    addres = [1, 1, 1, 2, 3, 3, 3]
+    values = [1.0, 2.0]
+    columns = [2, 2]
+    row = [3, 4]
+    col = [2, 2]
+    val = [1.0, 2.0]
+    @test CSRMatrix(addres, columns, values) ==
+          CSRMatrix_from_RCV(row, col, val; end_empty_rows = 2)
+
+    expected_message = "Размерности векторов row, col и val должны быть одинаковыми"
+    @test_throws ArgumentError(expected_message) begin
+        row = [3, 4, 6]
+        col = [2, 2]
+        val = [1.0, 2.0]
+        m = CSRMatrix_from_RCV(row, col, val)
     end
 end
