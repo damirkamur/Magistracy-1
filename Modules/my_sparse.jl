@@ -101,9 +101,10 @@ function Base.:*(c::CSRMatrix, number::Real)::CSRMatrix
     return CSRMatrix(c.addres, c.columns, c.values*number)
 end
 
-function solve(A::CSRMatrix, f::Vector{<:Real}; solver::Symbol=:Jacobi, ω::Float64=1.95)::Vector{<:Real}
+function solve(A::CSRMatrix, f::Vector{<:Real}; solver::Symbol=:Jacobi, ω::Float64=1.95, ε::Float64=1.0e-3, max_iter::Int64=100)::Vector{<:Real}
+    #TODO проверка на размерности
     if solver == :Jacobi
-        return _solve_Jacobi(A, f)
+        return _solve_Jacobi(A, f, ε, max_iter)
     elseif solver == :Seidel
         return _solve_Seidel(A, f)
     elseif solver == :SOR
@@ -113,8 +114,65 @@ function solve(A::CSRMatrix, f::Vector{<:Real}; solver::Symbol=:Jacobi, ω::Floa
     end
 end
 
-function _solve_Jacobi(A::CSRMatrix, f::Vector{<:Real})::Vector{<:Real}
-    [1.0] #TODO
+function _solve_Jacobi(A::CSRMatrix, f::Vector{<:Real}, ε::Float64, max_iter::Int64)::Vector{<:Real}
+    _check_Jacobi(A)
+    
+    u_old = zeros(Float64, A.rows)
+    u = zeros(Float64, A.rows)
+
+    iter = 0
+    while true
+        for i in 1:A.rows
+            ind1 = A.addres[i]
+            ind2 = A.addres[i+1]-1
+            d = Dict()
+            for j in ind1:ind2
+                d[A.columns[j]] = A.values[j]
+            end
+            s = 0.0
+            for (col, val) in d
+                s -= col != i ? val * u_old[col] : 0.0
+            end
+            s+=f[i]
+            u[i] = s / get(d, i, 0.0)
+        end
+        
+        if sum(abs.(u - u_old)) < ε
+            break
+        end
+        u_old .= u
+        
+        iter += 1
+        if iter >= max_iter
+            @warn "Достигнуто максимальное число итераций $max_iter"
+            break
+        end
+    end
+
+    return u
+end
+
+function _check_Jacobi(A::CSRMatrix)::Nothing
+    bad_rows = Vector{Int64}()
+    for i in 1:A.rows
+        ind1 = A.addres[i]
+        ind2 = A.addres[i+1]-1
+        d = Dict()
+        for j in ind1:ind2
+            d[A.columns[j]] = A.values[j]
+        end
+        s = 0.0
+        for (col, val) in d
+            s += col != i ? abs(val) : 0.0
+        end
+        if s > abs(get(d, i, 0.0))
+            push!(bad_rows, i)
+        end
+    end
+
+    if !isempty(bad_rows)
+        @warn "Невыполнено достаточное условие сходимости с строках: $bad_rows"
+    end
 end
 
 function _solve_Seidel(A::CSRMatrix, f::Vector{<:Real})::Vector{<:Real}
